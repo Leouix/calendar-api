@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class CalendarController extends Controller
 {
@@ -43,6 +44,32 @@ class CalendarController extends Controller
                 'source',
             ]);
 
+        $events = $this->deduplicateSources($events);
+
         return response()->json($events);
+    }
+
+    private function deduplicateSources($events): Collection
+    {
+        $grouped = $events->groupBy('company_id');
+
+        $filtered = [];
+        foreach ($grouped as $companyEvents) {
+            $avDates = $companyEvents
+                ->filter(fn($e) => $e->source === 'alphavantage' && $e->event_type === 'earnings')
+                ->pluck('event_date')
+                ->toArray();
+
+            foreach ($companyEvents as $event) {
+                if ($event->source === 'finnhub'
+                    && $event->event_type === 'earnings'
+                    && in_array($event->event_date, $avDates)) {
+                    continue;
+                }
+                $filtered[] = $event;
+            }
+        }
+
+        return collect($filtered);
     }
 }
