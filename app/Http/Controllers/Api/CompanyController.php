@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class CompanyController extends Controller
 {
@@ -59,5 +61,31 @@ class CompanyController extends Controller
         $company->delete();
 
         return response()->json(null, 204);
+    }
+
+    public function search(string $ticker): JsonResponse
+    {
+        $ticker = strtoupper($ticker);
+
+        $data = Cache::remember("alphavantage_overview_{$ticker}", 86400, function () use ($ticker) {
+            $response = Http::get('https://www.alphavantage.co/query', [
+                'function' => 'OVERVIEW',
+                'symbol' => $ticker,
+                'apikey' => config('services.alphavantage.key'),
+            ]);
+
+            return $response->json();
+        });
+
+        if (empty($data) || isset($data['Note']) || isset($data['Error Message'])) {
+            return response()->json(['error' => 'Company not found or API limit exceeded'], 404);
+        }
+
+        return response()->json([
+            'ticker' => $data['Symbol'],
+            'name' => $data['Name'],
+            'sector' => $data['Sector'] ?? null,
+            'exchange' => $data['Exchange'] ?? null,
+        ]);
     }
 }

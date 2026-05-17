@@ -7,3 +7,4 @@ use Illuminate\Support\Facades\Route;
 Route::apiResource('companies', CompanyController::class);
 
 Route::get('calendar', [CalendarController::class, 'index']);
+Route::get('company/search/{ticker}', [CompanyController::class, 'search']);
