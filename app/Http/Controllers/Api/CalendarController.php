@@ -48,11 +48,6 @@ class CalendarController extends Controller
 
         $events = $this->deduplicateSources($events);
 
-        // Keep API response shape stable for the frontend (it expects `event_type`).
-        $events->each(function ($e) {
-            $e->event_type = 'earnings';
-        });
-
         return response()->json($events);
     }
 
