@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\EventDividend;
 use App\Models\EventEarning;
+use Illuminate\Support\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,22 +17,34 @@ class CalendarController extends Controller
         $to = $request->filled('to') ? (string) $request->to : null;
         $eventType = $request->filled('event_type') ? (string) $request->event_type : null;
 
-        $events = [];
+        $events = collect();
 
         if ($eventType === null || $eventType === 'earnings') {
-            $events = array_merge($events, $this->fetchEarnings($request, $from, $to));
+            $events = $events->merge($this->fetchEarnings($request, $from, $to));
         }
 
         if ($eventType === null || str_starts_with($eventType, 'event_dividend')) {
-            $events = array_merge($events, $this->fetchDividendCalendarEvents($request, $from, $to, $eventType));
+            $events = $events->merge($this->fetchDividendCalendarEvents($request, $from, $to, $eventType));
         }
 
-        usort($events, fn ($a, $b) => strcmp($a['event_date'], $b['event_date']));
+        $events = $events
+            ->unique(function ($e) {
+                $ticker = (string) data_get($e, 'company.ticker', '');
+                if ($ticker === '') {
+                    // Dividend events may not always have the related company loaded; title is the ticker there.
+                    $ticker = (string) data_get($e, 'ticker', data_get($e, 'title', ''));
+                }
+                $date = (string) data_get($e, 'event_date', '');
+
+                return "{$ticker}|{$date}";
+            })
+            ->sortBy('event_date')
+            ->values();
 
         return response()->json($events);
     }
 
-    private function fetchEarnings(Request $request, ?string $from, ?string $to): array
+    private function fetchEarnings(Request $request, ?string $from, ?string $to): Collection
     {
         $query = EventEarning::with('company:id,ticker,name');
 
@@ -91,10 +104,10 @@ class CalendarController extends Controller
             }
         }
 
-        return $result;
+        return collect($result);
     }
 
-    private function fetchDividendCalendarEvents(Request $request, ?string $from, ?string $to, ?string $eventType): array
+    private function fetchDividendCalendarEvents(Request $request, ?string $from, ?string $to, ?string $eventType): Collection
     {
         $query = EventDividend::with('company:id,ticker,name');
 
@@ -125,7 +138,7 @@ class CalendarController extends Controller
 
         $rows = $query->orderBy('id')->get();
 
-        $result = [];
+        $result = collect();
         foreach ($rows as $d) {
             $ticker = $d->company?->ticker ?? $d->symbol ?? '';
             $title = $ticker ?: 'Dividend';
@@ -145,7 +158,7 @@ class CalendarController extends Controller
                     continue;
                 }
 
-                $result[] = [
+                $result->push([
                     'id' => "dividend:{$d->id}:{$type}",
                     'company_id' => $d->company_id,
                     'event_type' => $type,
@@ -156,7 +169,7 @@ class CalendarController extends Controller
                     'payload' => [
                         'amount' => $d->amount,
                     ],
-                ];
+                ]);
             }
         }
 
