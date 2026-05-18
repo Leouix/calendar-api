@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\EventDividend;
 use App\Models\EventEarning;
+use App\Models\PolygonDividend;
 use Illuminate\Support\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -109,7 +109,7 @@ class CalendarController extends Controller
 
     private function fetchDividendCalendarEvents(Request $request, ?string $from, ?string $to, ?string $eventType): Collection
     {
-        $query = EventDividend::with('company:id,ticker,name');
+        $query = PolygonDividend::with('company:id,ticker,name');
 
         if ($request->filled('search')) {
             $search = (string) $request->search;
@@ -122,7 +122,7 @@ class CalendarController extends Controller
         // Dividend dates are stored as strings. This assumes YYYY-MM-DD lexical ordering.
         if ($from !== null || $to !== null) {
             $query->where(function ($q) use ($from, $to) {
-                foreach (['declaration_date', 'ex_dividend_date', 'payment_date'] as $field) {
+                foreach (['declaration_date', 'ex_dividend_date', 'pay_date'] as $field) {
                     $q->orWhere(function ($qq) use ($field, $from, $to) {
                         $qq->whereNotNull($field);
                         if ($from !== null) {
@@ -140,14 +140,14 @@ class CalendarController extends Controller
 
         $result = collect();
         foreach ($rows as $d) {
-            $ticker = $d->company?->ticker ?? $d->symbol ?? '';
+            $ticker = $d->company?->ticker ?? $d->ticker ?? '';
             $title = $ticker ?: 'Dividend';
             $company = $d->company;
 
             $items = [
                 'event_dividend_declaration' => $d->declaration_date,
                 'event_dividend_ex' => $d->ex_dividend_date,
-                'event_dividend_payment' => $d->payment_date,
+                'event_dividend_payment' => $d->pay_date,
             ];
 
             foreach ($items as $type => $date) {
@@ -160,14 +160,18 @@ class CalendarController extends Controller
 
                 $result->push([
                     'id' => "dividend:{$d->id}:{$type}",
-                    'company_id' => $d->company_id,
+                    'company_id' => $d->company?->id,
                     'event_type' => $type,
                     'title' => $title,
                     'event_date' => $date,
-                    'source' => $d->source,
+                    'source' => 'polygon',
                     'company' => $company,
                     'payload' => [
-                        'amount' => $d->amount,
+                        'amount' => $d->cash_amount,
+                        'currency' => $d->currency,
+                        'dividend_type' => $d->dividend_type,
+                        'frequency' => $d->frequency,
+                        'record_date' => $d->record_date,
                     ],
                 ]);
             }

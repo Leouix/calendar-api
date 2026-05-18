@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Company;
-use App\Models\EventDividend;
 use App\Models\EventEarning;
+use App\Models\PolygonDividend;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -23,16 +23,17 @@ class CalendarDividendsTest extends TestCase
             'is_active' => true,
         ]);
 
-        EventDividend::create([
-            'company_id' => $company->id,
-            'symbol' => 'AAPL',
+        PolygonDividend::create([
+            'polygon_id' => 'pid1',
+            'ticker' => 'AAPL',
             'declaration_date' => '2026-04-30',
             'ex_dividend_date' => '2026-05-11',
-            'payment_date' => '2026-05-14',
+            'pay_date' => '2026-05-14',
             'record_date' => '2026-05-11',
-            'amount' => '0.27',
-            'source' => 'alphavantage',
-            'source_hash' => 'hash1',
+            'cash_amount' => '0.27',
+            'currency' => 'USD',
+            'dividend_type' => 'CD',
+            'frequency' => 4,
         ]);
 
         $res = $this->getJson('/api/calendar?from=2026-04-01&to=2026-05-31');
@@ -63,15 +64,13 @@ class CalendarDividendsTest extends TestCase
             'is_active' => true,
         ]);
 
-        EventDividend::create([
-            'company_id' => $company->id,
-            'symbol' => 'AAPL',
+        PolygonDividend::create([
+            'polygon_id' => 'pid1',
+            'ticker' => 'AAPL',
             'declaration_date' => '2026-04-30',
             'ex_dividend_date' => '2026-05-11',
-            'payment_date' => '2026-05-14',
-            'amount' => '0.27',
-            'source' => 'alphavantage',
-            'source_hash' => 'hash1',
+            'pay_date' => '2026-05-14',
+            'cash_amount' => '0.27',
         ]);
 
         $res = $this->getJson('/api/calendar?event_type=event_dividend_ex&from=2026-04-01&to=2026-05-31');
@@ -99,13 +98,11 @@ class CalendarDividendsTest extends TestCase
             'source_hash' => 'eh1',
         ]);
 
-        EventDividend::create([
-            'company_id' => $company->id,
-            'symbol' => 'AAPL',
+        PolygonDividend::create([
+            'polygon_id' => 'pid1',
+            'ticker' => 'AAPL',
             'ex_dividend_date' => '2026-05-11',
-            'amount' => '0.27',
-            'source' => 'alphavantage',
-            'source_hash' => 'hash1',
+            'cash_amount' => '0.27',
         ]);
 
         $res = $this->getJson('/api/calendar?from=2026-05-01&to=2026-05-31');
@@ -119,4 +116,3 @@ class CalendarDividendsTest extends TestCase
         $this->assertSame('event_dividend_ex', $events[1]['event_type']);
     }
 }
-
