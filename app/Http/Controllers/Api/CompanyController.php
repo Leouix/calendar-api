@@ -11,11 +11,16 @@ use Illuminate\Support\Facades\Http;
 
 class CompanyController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $companies = Company::where('is_active', true)
+        $query = Company::query();
+        if (!$request->boolean('all')) {
+            $query->where('is_active', true);
+        }
+
+        $companies = $query
             ->orderBy('ticker')
-            ->get(['id', 'ticker', 'name', 'country', 'exchange', 'sector']);
+            ->get(['id', 'ticker', 'name', 'country', 'exchange', 'sector', 'is_active']);
 
         return response()->json($companies);
     }
@@ -52,6 +57,19 @@ class CompanyController extends Controller
         ]);
 
         $company->update($validated);
+
+        return response()->json($company);
+    }
+
+    public function updateCompany(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id' => 'required|integer|exists:companies,id',
+            'is_active' => 'required|boolean',
+        ]);
+
+        $company = Company::findOrFail($validated['id']);
+        $company->update(['is_active' => $validated['is_active']]);
 
         return response()->json($company);
     }
