@@ -26,7 +26,7 @@ class CompanyController extends Controller
             'ticker' => 'required|string|max:20|unique:companies',
             'name' => 'required|string|max:255',
             'country' => 'nullable|string|max:4',
-            'exchange' => 'nullable|string|max:20',
+            'exchange' => 'nullable|string|max:100',
             'sector' => 'nullable|string|max:100',
         ]);
 
@@ -46,7 +46,7 @@ class CompanyController extends Controller
             'ticker' => 'sometimes|string|max:20|unique:companies,ticker,' . $company->id,
             'name' => 'sometimes|string|max:255',
             'country' => 'nullable|string|max:4',
-            'exchange' => 'nullable|string|max:20',
+            'exchange' => 'nullable|string|max:100',
             'sector' => 'nullable|string|max:100',
             'is_active' => 'sometimes|boolean',
         ]);
@@ -67,25 +67,43 @@ class CompanyController extends Controller
     {
         $ticker = strtoupper($ticker);
 
-        $data = Cache::remember("alphavantage_overview_{$ticker}", 86400, function () use ($ticker) {
-            $response = Http::get('https://www.alphavantage.co/query', [
-                'function' => 'OVERVIEW',
+        $apiKey = (string) config('services.finnhub.key');
+        if ($apiKey === '') {
+            return response()->json(['error' => 'FINNHUB_API_KEY not set'], 503);
+        }
+
+        $cacheKey = "finnhub_profile2_{$ticker}";
+        $data = Cache::get($cacheKey);
+
+        if (!is_array($data) || empty($data)) {
+            $response = Http::timeout(15)->get('https://finnhub.io/api/v1/stock/profile2', [
                 'symbol' => $ticker,
-                'apikey' => config('services.alphavantage.key'),
+                'token' => $apiKey,
             ]);
 
-            return $response->json();
-        });
+            if ($response->status() === 429) {
+                return response()->json(['error' => 'Finnhub API rate limit exceeded'], 429);
+            }
 
-        if (empty($data) || isset($data['Note']) || isset($data['Error Message'])) {
-            return response()->json(['error' => 'Company not found or API limit exceeded'], 404);
+            if (!$response->successful()) {
+                return response()->json(['error' => 'Company not found or Finnhub unavailable'], 404);
+            }
+
+            $data = $response->json();
+
+            // Finnhub returns {} (HTTP 200) for unknown symbols.
+            if (!is_array($data) || empty($data)) {
+                return response()->json(['error' => 'Company not found'], 404);
+            }
+
+            Cache::put($cacheKey, $data, 86400);
         }
 
         return response()->json([
-            'ticker' => $data['Symbol'],
-            'name' => $data['Name'],
-            'sector' => $data['Sector'] ?? null,
-            'exchange' => $data['Exchange'] ?? null,
+            'ticker' => $data['ticker'] ?? $ticker,
+            'name' => $data['name'] ?? null,
+            'sector' => $data['finnhubIndustry'] ?? null,
+            'exchange' => $data['exchange'] ?? null,
         ]);
     }
 }
