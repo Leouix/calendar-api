@@ -25,6 +25,12 @@ class Company extends Model
 
     public function events(): HasMany
     {
-        return $this->hasMany(Event::class);
+        // Back-compat alias. The domain model is now earnings-only.
+        return $this->eventEarnings();
+    }
+
+    public function eventEarnings(): HasMany
+    {
+        return $this->hasMany(EventEarning::class);
     }
 }

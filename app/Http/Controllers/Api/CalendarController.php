@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Event;
+use App\Models\EventEarning;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -12,7 +12,7 @@ class CalendarController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Event::with('company:id,ticker,name');
+        $query = EventEarning::with('company:id,ticker,name');
 
         if ($request->filled('from')) {
             $query->where('event_date', '>=', $request->from);
@@ -23,7 +23,10 @@ class CalendarController extends Controller
         }
 
         if ($request->filled('event_type')) {
-            $query->where('event_type', $request->event_type);
+            // Back-compat for the existing frontend filter. We only store earnings now.
+            if ($request->event_type !== 'earnings') {
+                return response()->json([]);
+            }
         }
 
         if ($request->filled('search')) {
@@ -38,13 +41,17 @@ class CalendarController extends Controller
             ->get([
                 'id',
                 'company_id',
-                'event_type',
                 'title',
                 'event_date',
                 'source',
             ]);
 
         $events = $this->deduplicateSources($events);
+
+        // Keep API response shape stable for the frontend (it expects `event_type`).
+        $events->each(function ($e) {
+            $e->event_type = 'earnings';
+        });
 
         return response()->json($events);
     }
@@ -56,13 +63,12 @@ class CalendarController extends Controller
         $filtered = [];
         foreach ($grouped as $companyEvents) {
             $avDates = $companyEvents
-                ->filter(fn($e) => $e->source === 'alphavantage' && $e->event_type === 'earnings')
+                ->filter(fn($e) => $e->source === 'alphavantage')
                 ->pluck('event_date')
                 ->toArray();
 
             foreach ($companyEvents as $event) {
                 if ($event->source === 'finnhub'
-                    && $event->event_type === 'earnings'
                     && in_array($event->event_date, $avDates)) {
                     continue;
                 }

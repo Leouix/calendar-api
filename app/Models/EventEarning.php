@@ -5,15 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Event extends Model
+class EventEarning extends Model
 {
     protected $fillable = [
         'company_id',
-        'event_type',
         'title',
         'event_date',
         'payload_json',
         'source',
+        'source_hash',
     ];
 
     protected function casts(): array
@@ -29,3 +29,4 @@ class Event extends Model
         return $this->belongsTo(Company::class);
     }
 }
+
