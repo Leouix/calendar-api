@@ -2,14 +2,13 @@
 
 namespace App\Services\MarketData\Providers;
 
+use App\ClientProviderInterface;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-class FinnhubClient
+readonly class FinnhubClient implements ClientProviderInterface
 {
-    public function __construct(private readonly string $apiKey)
-    {
-    }
+    public function __construct(private string $apiKey) {}
 
     public function hasKey(): bool
     {

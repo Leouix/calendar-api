@@ -2,10 +2,11 @@
 
 namespace App\Services\MarketData\Providers;
 
+use App\ClientProviderInterface;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
-class AlphaVantageClient
+class AlphaVantageClient implements ClientProviderInterface
 {
     private const BASE_URL = 'https://www.alphavantage.co/query';
 
