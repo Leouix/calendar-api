@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\EventDividend;
 use App\Models\EventEarning;
 use App\Models\PolygonDividend;
 use Illuminate\Support\Collection;
@@ -172,6 +173,68 @@ class CalendarController extends Controller
                         'dividend_type' => $d->dividend_type,
                         'frequency' => $d->frequency,
                         'record_date' => $d->record_date,
+                    ],
+                ]);
+            }
+        }
+
+        $eventDivQuery = EventDividend::with('company:id,ticker,name');
+
+        if ($request->filled('search')) {
+            $search = (string) $request->search;
+            $eventDivQuery->whereHas('company', function ($q) use ($search) {
+                $q->where('ticker', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
+            });
+        }
+
+        if ($from !== null || $to !== null) {
+            $eventDivQuery->where(function ($q) use ($from, $to) {
+                foreach (['declaration_date', 'ex_dividend_date', 'payment_date'] as $field) {
+                    $q->orWhere(function ($qq) use ($field, $from, $to) {
+                        $qq->whereNotNull($field);
+                        if ($from !== null) {
+                            $qq->where($field, '>=', $from);
+                        }
+                        if ($to !== null) {
+                            $qq->where($field, '<=', $to);
+                        }
+                    });
+                }
+            });
+        }
+
+        $eventDivRows = $eventDivQuery->orderBy('id')->get();
+
+        foreach ($eventDivRows as $d) {
+            $company = $d->company;
+            $ticker = $company?->ticker ?? '';
+            $title = $ticker ?: 'Dividend';
+
+            $items = [
+                'event_dividend_declaration' => $d->declaration_date,
+                'event_dividend_ex' => $d->ex_dividend_date,
+                'event_dividend_payment' => $d->payment_date,
+            ];
+
+            foreach ($items as $type => $date) {
+                if (!$date) {
+                    continue;
+                }
+                if ($eventType !== null && $eventType !== 'event_dividend' && $eventType !== $type) {
+                    continue;
+                }
+
+                $result->push([
+                    'id' => "event_div:{$d->id}:{$type}",
+                    'company_id' => $d->company_id,
+                    'event_type' => $type,
+                    'title' => $title,
+                    'event_date' => $date,
+                    'source' => $d->source,
+                    'company' => $company,
+                    'payload' => [
+                        'amount' => $d->amount,
                     ],
                 ]);
             }

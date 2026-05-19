@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Console\Commands\ImportAlphaVantageCommand;
+use App\Console\Commands\ImportDohodCommand;
 use App\Console\Commands\ImportFinnhubCommand;
+use App\Console\Commands\ImportSmartLabCommand;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -16,6 +18,8 @@ class AppServiceProvider extends ServiceProvider
         $this->commands([
             ImportFinnhubCommand::class,
             ImportAlphaVantageCommand::class,
+            ImportSmartLabCommand::class,
+            ImportDohodCommand::class,
         ]);
     }
 

@@ -47,4 +47,12 @@ return [
         'key' => env('POLYGON_API_KEY'),
     ],
 
+    'smartlab' => [
+        'key' => '',
+    ],
+
+    'dohod' => [
+        'key' => '',
+    ],
+
 ];
