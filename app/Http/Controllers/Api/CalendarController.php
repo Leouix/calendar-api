@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\EventDividend;
 use App\Models\EventEarning;
+use App\Models\MoexDividend;
 use App\Models\PolygonDividend;
 use Illuminate\Support\Collection;
 use Illuminate\Http\JsonResponse;
@@ -232,6 +233,66 @@ class CalendarController extends Controller
                     'title' => $title,
                     'event_date' => $date,
                     'source' => $d->source,
+                    'company' => $company,
+                    'payload' => [
+                        'amount' => $d->amount,
+                    ],
+                ]);
+            }
+        }
+
+        $moexDivQuery = MoexDividend::with('company:id,ticker,name');
+
+        if ($request->filled('search')) {
+            $search = (string) $request->search;
+            $moexDivQuery->whereHas('company', function ($q) use ($search) {
+                $q->where('ticker', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
+            });
+        }
+
+        if ($from !== null || $to !== null) {
+            $moexDivQuery->where(function ($q) use ($from, $to) {
+                foreach (['ex_dividend_date'] as $field) {
+                    $q->orWhere(function ($qq) use ($field, $from, $to) {
+                        $qq->whereNotNull($field);
+                        if ($from !== null) {
+                            $qq->where($field, '>=', $from);
+                        }
+                        if ($to !== null) {
+                            $qq->where($field, '<=', $to);
+                        }
+                    });
+                }
+            });
+        }
+
+        $moexDivRows = $moexDivQuery->orderBy('id')->get();
+
+        foreach ($moexDivRows as $d) {
+            $company = $d->company;
+            $ticker = $company?->ticker ?? '';
+            $title = $ticker ?: 'Dividend';
+
+            $items = [
+                'event_dividend_ex' => $d->ex_dividend_date,
+            ];
+
+            foreach ($items as $type => $date) {
+                if (!$date) {
+                    continue;
+                }
+                if ($eventType !== null && $eventType !== 'event_dividend' && $eventType !== $type) {
+                    continue;
+                }
+
+                $result->push([
+                    'id' => "moex_div:{$d->id}:{$type}",
+                    'company_id' => $d->company_id,
+                    'event_type' => $type,
+                    'title' => $title,
+                    'event_date' => $date,
+                    'source' => 'moex',
                     'company' => $company,
                     'payload' => [
                         'amount' => $d->amount,

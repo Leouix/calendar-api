@@ -6,6 +6,7 @@ use App\Console\Commands\ImportAlphaVantageCommand;
 use App\Console\Commands\ImportDohodCommand;
 use App\Console\Commands\ImportFinnhubCommand;
 use App\Console\Commands\ImportSmartLabCommand;
+use App\Console\Commands\ImportMoexCommand;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
             ImportAlphaVantageCommand::class,
             ImportSmartLabCommand::class,
             ImportDohodCommand::class,
+            ImportMoexCommand::class,
         ]);
     }
 
