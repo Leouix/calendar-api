@@ -124,4 +124,83 @@ class CompanyController extends Controller
             'exchange' => $data['exchange'] ?? null,
         ]);
     }
+
+    public function searchRu(string $ticker): JsonResponse
+    {
+        $ticker = strtoupper($ticker);
+
+        $cacheKey = "moex_security_description_{$ticker}";
+        $descMap = Cache::get($cacheKey);
+
+        if (!is_array($descMap) || empty($descMap)) {
+            $response = Http::timeout(15)->get("https://iss.moex.com/iss/securities/{$ticker}.json", [
+                'iss.meta' => 'off',
+                'iss.only' => 'description',
+            ]);
+
+            if (!$response->successful()) {
+                return response()->json(['error' => 'Company not found or MOEX ISS unavailable'], 404);
+            }
+
+            $descMap = $this->extractMoexDescriptionMap($response->json());
+            if (!is_array($descMap) || empty($descMap)) {
+                return response()->json(['error' => 'Company not found'], 404);
+            }
+
+            Cache::put($cacheKey, $descMap, 86400);
+        }
+
+        $name = $descMap['SHORTNAME'] ?? $descMap['NAME'] ?? $descMap['SECNAME'] ?? null;
+        if (!is_string($name) || trim($name) === '') {
+            $name = $ticker;
+        }
+
+        return response()->json([
+            'ticker' => $descMap['SECID'] ?? $ticker,
+            'name' => $name,
+            'sector' => null,
+            'exchange' => 'MOEX',
+            'country' => 'RU',
+        ]);
+    }
+
+    private function extractMoexDescriptionMap(mixed $payload): ?array
+    {
+        if (!is_array($payload)) {
+            return null;
+        }
+
+        $description = $payload['description'] ?? null;
+        if (!is_array($description)) {
+            return null;
+        }
+
+        $columns = $description['columns'] ?? null;
+        $rows = $description['data'] ?? null;
+        if (!is_array($columns) || !is_array($rows)) {
+            return null;
+        }
+
+        $nameIdx = array_search('name', $columns, true);
+        $valueIdx = array_search('value', $columns, true);
+        if ($nameIdx === false || $valueIdx === false) {
+            return null;
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $key = $row[$nameIdx] ?? null;
+            if (!is_string($key) || $key === '') {
+                continue;
+            }
+
+            $out[$key] = $row[$valueIdx] ?? null;
+        }
+
+        return $out;
+    }
 }

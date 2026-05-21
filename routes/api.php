@@ -9,3 +9,4 @@ Route::post('update-company', [CompanyController::class, 'updateCompany']);
 
 Route::get('calendar', [CalendarController::class, 'index']);
 Route::get('company/search/{ticker}', [CompanyController::class, 'search']);
+Route::get('company/search-ru/{ticker}', [CompanyController::class, 'searchRu']);
